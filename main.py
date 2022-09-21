@@ -1,24 +1,32 @@
 import csv
+import json
+import os
 from typing import Generator
 
+import psycopg
 import strconv
 import typer
+from dotenv import load_dotenv
 
 app = typer.Typer()
+load_dotenv()
 
 
-def open_csv(file: str, index: int = None, headers: bool = True) -> Generator:
+@app.command()
+def dowload_from_drive(url: str):
+    print("Hello World")
+
+
+def open_csv(file: str, lines: int = None, headers: bool = True) -> Generator:
     with open(file) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',')
-        line_count = 0
-        for row in csv_reader:
+        for index, row in enumerate(csv_reader):
             if not headers:
-                if line_count == 0:
+                if index == 0:
                     continue
-            yield row
-            if line_count == index:
+            if index == lines:
                 break
-            line_count += 1
+            yield row
 
 
 DATABASE_TYPES = {
@@ -30,25 +38,22 @@ DATABASE_TYPES = {
 }
 
 
-def save_schema(name: str, query: str):
-    with open(f'{name}.sql', 'w') as file:
-        file.write(query)
-    print(f'archivo {name}.sql creado')
-
-
-@app.command()
-def dowload_from_drive(url: str):
-    print("Hello World")
+def save_file(name: str, data: str, ext: str):
+    with open(f'{name}.{ext}', 'w') as file:
+        file.write(data)
+    print(f'archivo {name}.{ext} creado')
 
 
 @app.command()
 def create_schema_from_csv(file: str):
     name = file.split('.')[0]
-    data = open_csv(file, index=1)
+    data = open_csv(file, lines=2)
 
     columns = ''
+    headers = []
     for key, value in zip(*data):
         columns += f', {key} {DATABASE_TYPES[strconv.infer(value)]}\n'
+        headers.append(key)
 
     sql = """
         --sql
@@ -57,12 +62,41 @@ def create_schema_from_csv(file: str):
             {columns}
     );
     """.format(name=name.capitalize(), columns=columns)
-    save_schema(name=name, query=sql)
+    save_file(name=name, data=sql, ext='sql')
+    save_file(name=name, data=json.dumps(headers), ext='json')
+
+
+def load_file(file: str):
+    with open(file, "r") as f:
+        lines = f.readlines()
+        return ''.join([line for line in lines])
 
 
 @app.command()
 def create_table(schema: str):
-    print("Hello World")
+    name = schema.split('.')[0]
+    headers = load_file(file=f'{name}.json')[1:-1]
+
+    data = open_csv(f'{name}.csv', headers=False)
+    values = [tuple(i) for i in data]
+
+    sql = """
+        --sql
+        INSERT INTO table_name ({headers})
+        VALUES
+        {values}
+        ;
+    """.format(headers=headers, values=values)
+
+    sql_create_table = load_file(file=schema)
+    with psycopg.connect(os.environ['DB_URL']) as conn:
+        with conn.cursor() as cur:
+            create = cur.execute(sql_create_table)
+            insert = cur.execute(sql)
+            print(create)
+            print(insert)
+
+        conn.commit()
 
 
 @app.command()
