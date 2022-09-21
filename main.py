@@ -66,6 +66,8 @@ def create_table(schema: str):
         ;
     """.format(headers=headers, values=str(values)[1:-1], name=name.capitalize())
 
+    save_file(name=f'{name}-last-entry', data=json.dumps(values[-1]), ext='json')
+
     sql_create_table = load_file(file=schema)
     with psycopg.connect(os.environ['DB_URL']) as conn:
         with conn.cursor() as cur:
@@ -78,8 +80,45 @@ def create_table(schema: str):
 
 
 @app.command()
-def update_table(file_csv: str, table_name: str):
-    print("check what could the pivot o key")
+def sync_table(file: str):
+    name = file.split('.')[0]
+    headers = load_file(file=f'{name}.json')[1:-1]
+    data = open_csv(f'{name}.csv', headers=False)
+    values = [tuple(i) for i in data]
+
+    sql = '''
+        --sql
+        INSERT INTO {name} (id, {headers})
+        VALUES
+        {values}
+        ON CONFLICT (id) DO UPDATE SET
+        id = EXCLUDED.id
+        , "sum" = EXCLUDED."sum"
+        , "count" = EXCLUDED."count"
+    '''.format(name=name.capitalize(), headers=headers, values=str(values)[1:-1])
+    with psycopg.connect(os.environ['DB_URL']) as conn:
+        with conn.cursor() as cur:
+            insert_or_update = cur.execute(sql)
+            print(insert_or_update)
+        conn.commit()
+    print('todo actualizado')
+
+
+@app.command()
+def update_table(file: str):
+    name = file.split('.')[0]
+    headers = load_file(file=f'{name}.json')[1:-1]
+    raw_last_entry = json.loads(load_file(file=f'{name}-last-entry.json'))
+    last_entry = tuple((strconv.convert(column) for column in raw_last_entry))
+
+    sql = f"SELECT * FROM {name} ORDER BY ID DESC LIMIT 1"
+    with psycopg.connect(os.environ['DB_URL']) as conn:
+        with conn.cursor() as curs:
+            row = curs.execute(sql).fetchone()
+            if not row[1:] == last_entry:
+                print('insertar nuevas tablas')
+                __import__('ipdb').set_trace()
+    print('todo actualizado')
 
 
 if __name__ == "__main__":
