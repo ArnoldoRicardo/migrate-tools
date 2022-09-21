@@ -129,7 +129,8 @@ def update_table(file: str):
             with conn.cursor() as curs:
                 insert = curs.execute(sql_insert)
                 print(insert)
-                print('columnas nuevas agregadas')
+        conn.commit()
+        print('columnas nuevas agregadas')
 
 
 if __name__ == "__main__":
