@@ -82,11 +82,11 @@ def create_table(schema: str):
 
     sql = """
         --sql
-        INSERT INTO table_name ({headers})
+        INSERT INTO {name} ({headers})
         VALUES
         {values}
         ;
-    """.format(headers=headers, values=values)
+    """.format(headers=headers, values=str(values)[1:-1], name=name.capitalize())
 
     sql_create_table = load_file(file=schema)
     with psycopg.connect(os.environ['DB_URL']) as conn:
@@ -101,7 +101,7 @@ def create_table(schema: str):
 
 @app.command()
 def update_table(file_csv: str, table_name: str):
-    print("Hello World")
+    print("check what could the pivot o key")
 
 
 if __name__ == "__main__":
