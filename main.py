@@ -6,8 +6,8 @@ import strconv
 import typer
 from dotenv import load_dotenv
 
-from .files import load_file, open_csv, save_file
-from .gdown import download_file_from_google_drive, get_file_id
+from files import load_file, open_csv, save_file
+from gdown import download_file_from_google_drive, get_file_id
 
 app = typer.Typer()
 load_dotenv()
