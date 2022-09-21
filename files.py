@@ -2,14 +2,15 @@ import csv
 from typing import Generator
 
 
-def open_csv(file: str, lines: int = None, headers: bool = True) -> Generator:
+def open_csv(file: str, start: int = 0, end: int = None, headers: bool = True) -> Generator:
+    if not headers:
+        start = 1
     with open(file) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',')
         for index, row in enumerate(csv_reader):
-            if not headers:
-                if index == 0:
-                    continue
-            if index == lines:
+            if index < start:
+                continue
+            if index == end:
                 break
             yield row
 

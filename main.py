@@ -31,7 +31,7 @@ def dowload_from_drive(url: str, file: str):
 @app.command()
 def create_schema_from_csv(file: str):
     name = file.split('.')[0]
-    data = open_csv(file, lines=2)
+    data = open_csv(file, end=2)
 
     columns = ''
     headers = []
@@ -84,7 +84,7 @@ def sync_table(file: str):
     name = file.split('.')[0]
     headers = load_file(file=f'{name}.json')[1:-1]
     data = open_csv(f'{name}.csv', headers=False)
-    values = [tuple(i) for i in data]
+    values = [tuple([key, *i]) for key, i in enumerate(data)]
 
     sql = '''
         --sql
@@ -115,10 +115,20 @@ def update_table(file: str):
     with psycopg.connect(os.environ['DB_URL']) as conn:
         with conn.cursor() as curs:
             row = curs.execute(sql).fetchone()
-            if not row[1:] == last_entry:
-                print('insertar nuevas tablas')
-                __import__('ipdb').set_trace()
-    print('todo actualizado')
+        if not row[1:] == last_entry:
+            data = open_csv(file, start=(row[0] + 1))
+            values = [tuple(i) for i in data]
+            sql_insert = """
+                --sql
+                INSERT INTO {name} ({headers})
+                VALUES
+                {values}
+                ;
+            """.format(headers=headers, values=str(values)[1:-1], name=name.capitalize())
+            with conn.cursor() as curs:
+                insert = curs.execute(sql_insert)
+                print(insert)
+                print('columnas nuevas agregadas')
 
 
 if __name__ == "__main__":
