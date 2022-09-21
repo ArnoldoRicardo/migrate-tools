@@ -1,32 +1,16 @@
-import csv
 import json
 import os
-from typing import Generator
 
 import psycopg
 import strconv
 import typer
 from dotenv import load_dotenv
 
+from .files import load_file, open_csv, save_file
+from .gdown import download_file_from_google_drive, get_file_id
+
 app = typer.Typer()
 load_dotenv()
-
-
-@app.command()
-def dowload_from_drive(url: str):
-    print("Hello World")
-
-
-def open_csv(file: str, lines: int = None, headers: bool = True) -> Generator:
-    with open(file) as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter=',')
-        for index, row in enumerate(csv_reader):
-            if not headers:
-                if index == 0:
-                    continue
-            if index == lines:
-                break
-            yield row
 
 
 DATABASE_TYPES = {
@@ -38,10 +22,10 @@ DATABASE_TYPES = {
 }
 
 
-def save_file(name: str, data: str, ext: str):
-    with open(f'{name}.{ext}', 'w') as file:
-        file.write(data)
-    print(f'archivo {name}.{ext} creado')
+@app.command()
+def dowload_from_drive(url: str, file: str):
+    file_id = get_file_id(url)
+    download_file_from_google_drive(file_id, file)
 
 
 @app.command()
@@ -64,12 +48,6 @@ def create_schema_from_csv(file: str):
     """.format(name=name.capitalize(), columns=columns)
     save_file(name=name, data=sql, ext='sql')
     save_file(name=name, data=json.dumps(headers), ext='json')
-
-
-def load_file(file: str):
-    with open(file, "r") as f:
-        lines = f.readlines()
-        return ''.join([line for line in lines])
 
 
 @app.command()
