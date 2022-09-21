@@ -82,9 +82,11 @@ def create_table(schema: str):
 @app.command()
 def sync_table(file: str):
     name = file.split('.')[0]
+    raw_headers = load_file(file=f'{name}.json')
     headers = load_file(file=f'{name}.json')[1:-1]
     data = open_csv(f'{name}.csv', headers=False)
     values = [tuple([key, *i]) for key, i in enumerate(data)]
+    updates = ''.join([f', {name} = EXCLUDED.{name}' for name in json.loads(raw_headers)])
 
     sql = '''
         --sql
@@ -93,9 +95,8 @@ def sync_table(file: str):
         {values}
         ON CONFLICT (id) DO UPDATE SET
         id = EXCLUDED.id
-        , "sum" = EXCLUDED."sum"
-        , "count" = EXCLUDED."count"
-    '''.format(name=name.capitalize(), headers=headers, values=str(values)[1:-1])
+        {updates}
+    '''.format(name=name.capitalize(), headers=headers, values=str(values)[1:-1], updates=updates)
     with psycopg.connect(os.environ['DB_URL']) as conn:
         with conn.cursor() as cur:
             insert_or_update = cur.execute(sql)
